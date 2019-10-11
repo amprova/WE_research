@@ -65,19 +65,23 @@ class tf_idf:
         return cosine_mat.toarray()
 
     def get_user_item(self, userID):
-        user_item_ids = self.review_data.set_index('user_id')['item_id']
-        temp_df = user_item_ids.loc[userID].to_frame()
+        user_item_ids = self.review_data.set_index('user')['item']
+        user_item = user_item_ids.loc[userID]
+        if isinstance(user_item, str):
+            user_item = pd.Series(user_item).rename("item")
+       
+        temp_df = user_item.to_frame()
         temp_df = temp_df.reset_index()
         return temp_df
     
     def itemid_2_index(self):
-        r_index = pd.Index(self.item_data.item_id.unique(), name='item_id')
+        r_index = pd.Index(self.item_data.item.unique(), name='item')
         return r_index
     
-    def score_reviews(self, itemid):
+    def score_reviews(self, item):
         try:
             item2index = self.itemid_2_index()
-            idx = item2index.get_loc(itemid)
+            idx = item2index.get_loc(item)
         except KeyError:
             return pd.Series(0, item2index, name='rev_sim')
         row = self.similarity_matrix[idx, :].copy()
@@ -90,7 +94,7 @@ class tf_idf:
         
         self.review_data = review_data
         
-        item_data1 = pd.DataFrame({'review': self.review_data.groupby(['item_id']).review.apply(lambda x:' '.join(x))})
+        item_data1 = pd.DataFrame({'review': self.review_data.groupby(['item']).review.apply(lambda x:' '.join(x))})
         item_data1.reset_index(inplace=True)
         #print(item_data1)
         item_data1['processed_reviews'] = item_data1['review'].apply(lambda row: self.process(row))
@@ -101,9 +105,9 @@ class tf_idf:
         
         return self
     
-    def predict_for_user(self, userID, itemList):
+    def predict_for_user(self, userID, itemList, ratings = None):
         temp_df = self.get_user_item(userID)
-        items = temp_df[:]['item_id']
+        items = temp_df[:]['item']
         
         scores = items.apply(lambda x: self.score_reviews(x))
         
