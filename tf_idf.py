@@ -65,11 +65,12 @@ class tf_idf:
         return cosine_mat.toarray()
 
     def get_user_item(self, userID):
+        
         user_item_ids = self.review_data.set_index('user')['item']
         user_item = user_item_ids.loc[userID]
         if isinstance(user_item, str):
             user_item = pd.Series(user_item).rename("item")
-       
+
         temp_df = user_item.to_frame()
         temp_df = temp_df.reset_index()
         return temp_df
@@ -89,7 +90,15 @@ class tf_idf:
         item_sim = pd.Series(row, item2index, name='rev_sim')
         return item_sim
 
-        
+    '''def get_popular_item(self):
+        game_count = pd.DataFrame()
+        game_count['count'] = self.review_data.groupby('item')['user'].count()
+        pop = game_count.sort_values(by=['count'], ascending = False)
+        popular_item = pop.head(5)
+        popular_item.reset_index(inplace= True)
+        return popular_item['item']'''
+
+    
     def fit(self, review_data):
         
         self.review_data = review_data
@@ -106,18 +115,25 @@ class tf_idf:
         return self
     
     def predict_for_user(self, userID, itemList, ratings = None):
-        temp_df = self.get_user_item(userID)
-        items = temp_df[:]['item']
-        
-        scores = items.apply(lambda x: self.score_reviews(x))
-        
-        present = items[items.isin(scores.columns)]
-        scores.loc[:, present] = 0
-        #final_score = scores.sum(axis=0)
-        
-        predList = scores.filter(items=itemList)
-        final_score = predList.sum(axis=0)
-        
-        #final_score = score[itemID].sum()
-        
+        #popular_items = self.get_popular_item()
+        user_item_ids = self.review_data.set_index('user')['item']
+        if userID in user_item_ids.index:
+            temp_df = self.get_user_item(userID)
+            items = temp_df[:]['item']
+            scores = items.apply(lambda x: self.score_reviews(x))
+
+            present = items[items.isin(scores.columns)]
+            scores.loc[:, present] = 0
+            #final_score = scores.sum(axis=0)
+
+            predList = scores.filter(items=itemList)
+            final_score = predList.sum(axis=0)
+        else:
+            final_score = pd.Series(np.nan, index=items)
+            #final_score = score[itemID].sum()
         return final_score
+    
+    def __str__(self):
+        return 'TF-IDF'
+    
+    
