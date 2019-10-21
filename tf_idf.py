@@ -65,12 +65,10 @@ class tf_idf:
         return cosine_mat.toarray()
 
     def get_user_item(self, userID):
-        
         user_item_ids = self.review_data.set_index('user')['item']
         user_item = user_item_ids.loc[userID]
         if isinstance(user_item, str):
             user_item = pd.Series(user_item).rename("item")
-
         temp_df = user_item.to_frame()
         temp_df = temp_df.reset_index()
         return temp_df
@@ -90,20 +88,21 @@ class tf_idf:
         item_sim = pd.Series(row, item2index, name='rev_sim')
         return item_sim
 
-    '''def get_popular_item(self):
+    def get_popular_item(self):
         game_count = pd.DataFrame()
         game_count['count'] = self.review_data.groupby('item')['user'].count()
         pop = game_count.sort_values(by=['count'], ascending = False)
         popular_item = pop.head(5)
         popular_item.reset_index(inplace= True)
-        return popular_item['item']'''
+        return popular_item['item']
 
     
     def fit(self, review_data):
         
         self.review_data = review_data
-        
+        #print(type(review_data['review']))
         item_data1 = pd.DataFrame({'review': self.review_data.groupby(['item']).review.apply(lambda x:' '.join(x))})
+        #print(type(item_data1))
         item_data1.reset_index(inplace=True)
         #print(item_data1)
         item_data1['processed_reviews'] = item_data1['review'].apply(lambda row: self.process(row))
@@ -128,12 +127,15 @@ class tf_idf:
 
             predList = scores.filter(items=itemList)
             final_score = predList.sum(axis=0)
+
+                #final_score = score[itemID].sum()
+
+            return final_score
         else:
-            final_score = pd.Series(np.nan, index=items)
-            #final_score = score[itemID].sum()
-        return final_score
-    
+            return pd.Series(np.nan, index=items)
+        
     def __str__(self):
-        return 'TF-IDF'
-    
-    
+        return 'Tf-IDF'
+        
+            
+         
