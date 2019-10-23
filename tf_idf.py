@@ -15,6 +15,8 @@ tokenizer = RegexpTokenizer(r'\w+')
 from scipy import sparse
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
+import logging
+
 
 
 class tf_idf:
@@ -22,6 +24,7 @@ class tf_idf:
     similarity_matrix = None
     review_data = None
     item_data = None
+    timer = None
     
     #tokenize = True
     #lower = True
@@ -88,28 +91,24 @@ class tf_idf:
         item_sim = pd.Series(row, item2index, name='rev_sim')
         return item_sim
 
-    def get_popular_item(self):
-        game_count = pd.DataFrame()
-        game_count['count'] = self.review_data.groupby('item')['user'].count()
-        pop = game_count.sort_values(by=['count'], ascending = False)
-        popular_item = pop.head(5)
-        popular_item.reset_index(inplace= True)
-        return popular_item['item']
 
     
-    def fit(self, review_data):
+    def fit(self, pruned_data):
         
-        self.review_data = review_data
-        #print(type(review_data['review']))
-        item_data1 = pd.DataFrame({'review': self.review_data.groupby(['item']).review.apply(lambda x:' '.join(x))})
-        #print(type(item_data1))
+        
+        self.review_data = pruned_data
+        only_rev = pruned_data.dropna()
+        
+        item_data1 = pd.DataFrame({'review': only_rev.groupby(['item']).review.apply(lambda x:' '.join(x))})
         item_data1.reset_index(inplace=True)
-        #print(item_data1)
+        
         item_data1['processed_reviews'] = item_data1['review'].apply(lambda row: self.process(row))
         self.item_data = item_data1
         
         tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
         self.similarity_matrix = self.cosine_sim(tf_idf_mat)
+        self.timer = util.Stopwatch()
+        logging.info('[%s] fitting TF-IDF', self.timer)
         
         return self
     
@@ -129,7 +128,8 @@ class tf_idf:
             final_score = predList.sum(axis=0)
 
                 #final_score = score[itemID].sum()
-
+            logging.info('[%s] Recommendation for USERID %s',
+                     self.timer,userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)
