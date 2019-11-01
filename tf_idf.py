@@ -99,21 +99,21 @@ class tf_idf:
         self.review_data = pruned_data
         only_rev = pruned_data.dropna()
         
-        item_data1 = pd.DataFrame({'review': only_rev.groupby(['item']).review.apply(lambda x:' '.join(x))})
-        item_data1.reset_index(inplace=True)
+        item_rev = pd.DataFrame({'review': only_rev.groupby(['item']).review.apply(lambda x:' '.join(x))})
+        item_rev.reset_index(inplace=True)
         
-        item_data1['processed_reviews'] = item_data1['review'].apply(lambda row: self.process(row))
+        item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
         self.item_data = item_data1
         
         tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
         self.similarity_matrix = self.cosine_sim(tf_idf_mat)
-        self.timer = util.Stopwatch()
-        logging.info('[%s] fitting TF-IDF', self.timer)
+        #self.timer = util.Stopwatch()
+       #logging.info('[%s] fitting TF-IDF', self.timer)
         
         return self
     
     def predict_for_user(self, userID, itemList, ratings = None):
-        #popular_items = self.get_popular_item()
+        
         user_item_ids = self.review_data.set_index('user')['item']
         if userID in user_item_ids.index:
             temp_df = self.get_user_item(userID)
@@ -128,8 +128,8 @@ class tf_idf:
             final_score = predList.sum(axis=0)
 
                 #final_score = score[itemID].sum()
-            logging.info('[%s] Recommendation for USERID %s',
-                     self.timer,userID)
+           # logging.info('[%s] Recommendation for USERID %s',
+                    # self.timer,userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)
