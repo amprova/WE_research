@@ -100,3 +100,5 @@ algo_bpr = BPR()
 algo_tf_idf = tf_idf()
 
 algo_eval('results/steam/pruned_5_new', [algo_tf_idf, algo_ii, algo_pop,algo_mf,algo_bpr], pairs_user)
+
+

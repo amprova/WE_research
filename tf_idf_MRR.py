@@ -32,30 +32,61 @@ pairs_user = pickle.load(file)
 
 truth = pd.concat((p.test for p in pairs_user))
 
+from fastparquet import ParquetFile
 
-def ndcg(file_name, truth):
-    recs = pd.read_parquet(file_name)
-    rla = topn.RecListAnalysis()
-    rla.add_metric(topn.ndcg)
-    ndcg = rla.compute(recs, truth)
-    return ndcg
+result = pd.DataFrame()
+pf = ParquetFile('results/steam/pruned_5_new/recommendations.parquet')
+for df in pf.iter_row_groups():
+    trancate = df.loc[df['rank']<1001]
+    result = result.append(trancate,sort = False)
 
-def RR(file_name, truth):
-    recs = pd.read_parquet(file_name)
+#result.to_parquet('results/steam/pruned_5_new/recs.parquet')
+#result.to_csv("results/steam/pruned_5_new/recs.csv")
+
+
+def RR(rec, truth):
+    #recs = pd.read_parquet(file_name)
     rla = topn.RecListAnalysis()
     rla.add_metric(topn.recip_rank)
-    RR = rla.compute(recs, truth)
-    return RR
+    RR_result = rla.compute(rec, truth)
+    return RR_result
 
-RR_algo_comp = RR('results/steam/pruned_5_new/recommendations.parquet', truth)
+RR_algo_comp = RR(result, truth)
+print("done with recip_rank")
+
+RR_algo_comp.to_parquet('results/steam/pruned_5_new/RR_algo1000.parquet')
+RR_algo_comp.to_csv("results/steam/pruned_5_new/RR_algo1000.csv", ignore_index=True)
+
+pickle_out = open("results/steam/pruned_5_new/RR_algo1000.pickle","wb")
+pickle.dump(RR_algo_comp, pickle_out, protocol = 4)
+pickle_out.close()
 
 
+### join with algo name
 legend = pd.read_csv("results/steam/pruned_5_new/runs.csv")
 legend = legend.set_index('RunId').loc[:,'AlgoStr']
 
-RR_algo = MRR_algo.join(legend, on='RunId')
+RR_algo = RR_algo_comp.join(legend, on='RunId')
 
-pickle_out = open("results/steam/pruned_5_new/RR_algo.pickle","wb")
-pickle.dump(RR_algo, pickle_out)
+RR_algo.to_parquet('results/steam/pruned_5_new/RR_algoname1000.parquet')
+RR_algo.to_csv("results/steam/pruned_5_new/RR_algoname1000.csv", ignore_index=True)
+
+pickle_out = open("results/steam/pruned_5_new/RR_algoname1000.pickle","wb")
+pickle.dump(RR_algo, pickle_out, protocol = 4)
 pickle_out.close()
+
+print("done with merging")
+
+## saving result
+pickle_out = open("results/steam/pruned_5_new/recs1000.pickle","wb")
+pickle.dump(result, pickle_out, protocol=4)
+pickle_out.close()
+#result.to_parquet('results/steam/pruned_5_new/recs.parquet')
+#result.to_csv("results/steam/pruned_5_new/recs.csv")
+
+
+
+
+
+
 
