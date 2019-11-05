@@ -113,7 +113,6 @@ class tf_idf:
         return self
     
     def predict_for_user(self, userID, itemList, ratings = None):
-        
         user_item_ids = self.review_data.set_index('user')['item']
         if userID in user_item_ids.index:
             temp_df = self.get_user_item(userID)
