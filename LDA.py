@@ -7,6 +7,7 @@ import operator
 from itertools import chain
 import ast
 import gzip
+import gensim
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
@@ -16,12 +17,12 @@ from scipy import sparse
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
-import gensim
-from gensim import corpora
 from sklearn.feature_extraction import DictVectorizer
-
-NUM_TOPICS = 20
-
+from sklearn.feature_extraction.text import TfidfTransformer
+_logger = logging.getLogger(__name__)
+import logging
+from gensim import corpora
+from lenskit import util
 
 class LDA:
     
@@ -29,6 +30,7 @@ class LDA:
     review_data = None
     item_data = None
     timer = None
+    NUM_TOPICS = 20
     
     #tokenize = True
     #lower = True
@@ -56,36 +58,30 @@ class LDA:
             processed = [ps.stem(token) for token in processed]
         
         return processed
+    
+    def tuple_to_dict(self,row):
+        dc = dict((x, y) for x, y in row)
+        return dc
      
-    
-    def tf_idf(self, data_table, col_name):
-        corpus_list = []
-        for item in data_table[col_name]:
-            corpus_list.append(' '.join(item))
-            #corpus_list.append(item)
-        tfidf_matrix = TfidfVectorizer().fit_transform(corpus_list)
-        return tfidf_matrix
-    
-    def LDA_topic(self, data_table, col_name):
+    def LDA(self, data_table, col_name):
+        dictvectorizer = DictVectorizer(sparse=True)
         bow = data_table[col_name].tolist()
         dictionary = corpora.Dictionary(bow) 
         corpus = [dictionary.doc2bow(text) for text in bow]
         data_table['doc2bow'] = corpus
-        lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics = NUM_TOPICS, id2word=dictionary, 
+        lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics = self.NUM_TOPICS, id2word=dictionary, 
                                                     passes=15, per_word_topics=True)
-        data_table['doc2bow'] = data_table['doc2bow'].apply(lambda row: lda_model.get_document_topics(row))
-        return data_table
-
-    def tuple_to_dict(self,row):
-        dc = dict((x, y) for x, y in row)
-        return dc
+        data_table['LDA_topic'] = data_table['doc2bow'].apply(lambda row: lda_model.get_document_topics(row))
         
-    
-    def cosine_sim(self):
-        dictvectorizer = DictVectorizer(sparse=True)
-        dict_val = self.item_data['LDA_topic'].apply(lambda row: self.tuple_to_dict(row))
-        mat = dictvectorizer.fit_transform(dict_val)
-        cosine_mat = mat @ mat.T
+        dict_val = data_table['LDA_topic'].apply(lambda row: self.tuple_to_dict(row))
+        LDA_mat = dictvectorizer.fit_transform(dict_val)
+        return LDA_mat
+
+    def cosine_sim(self,mat_name):
+        
+        #norm_mat = normalize(mat_name, norm='l2', axis=1)
+        #cosine_mat = norm_mat @ norm_mat.T
+        cosine_mat = mat_name @ mat_name.T
         return cosine_mat.toarray()
 
     def get_user_item(self, userID):
@@ -116,7 +112,7 @@ class LDA:
     
     def fit(self, pruned_data):
         
-        
+        self.timer = util.Stopwatch()
         self.review_data = pruned_data
         only_rev = pruned_data.dropna()
         
@@ -124,13 +120,12 @@ class LDA:
         item_rev.reset_index(inplace=True)
         
         item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
-        self.item_data = item_data1
+        self.item_data = item_rev
         
         #tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
-        self.item_data = self.LDA_topic(self.item_data, 'processed_reviews')
-        self.similarity_matrix = self.cosine_sim(item_data)
-        #self.timer = util.Stopwatch()
-       #logging.info('[%s] fitting TF-IDF', self.timer)
+        LDA_mat = self.LDA(self.item_data, 'processed_reviews')
+        self.similarity_matrix = self.cosine_sim(LDA_mat)
+        _logger.info('[%s] fitting LDA model', self.timer)
         
         return self
     
@@ -147,10 +142,7 @@ class LDA:
 
             predList = scores.filter(items=itemList)
             final_score = predList.sum(axis=0)
-
-                #final_score = score[itemID].sum()
-           # logging.info('[%s] Recommendation for USERID %s',
-                    # self.timer,userID)
+            _logger.info('[%s] fitting LDA model for UserID [%s]', self.timer, userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)

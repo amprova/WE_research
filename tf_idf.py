@@ -16,8 +16,12 @@ from scipy import sparse
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
-
-
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+_logger = logging.getLogger(__name__)
+import logging
+from gensim import corpora
+from lenskit import util
 
 class tf_idf:
     
@@ -52,15 +56,33 @@ class tf_idf:
             processed = [ps.stem(token) for token in processed]
         
         return processed
-     
+    
+    def tuple_to_dict(self,row):
+        dc = dict((x, y) for x, y in row)
+        return dc
     
     def tf_idf(self, data_table, col_name):
-        corpus_list = []
-        for item in data_table[col_name]:
-            corpus_list.append(' '.join(item))
-            #corpus_list.append(item)
-        tfidf_matrix = TfidfVectorizer().fit_transform(corpus_list)
-        return tfidf_matrix
+        
+        dictvectorizer = DictVectorizer(sparse=True)
+        tfidf_transformer = TfidfTransformer()
+        bow = data_table[col_name].tolist()
+        dictionary = corpora.Dictionary(bow) 
+        corpus = [dictionary.doc2bow(text) for text in bow]
+        data_table['doc2bow'] = corpus
+        dict_val = data_table['doc2bow'].apply(lambda row: self.tuple_to_dict(row))
+        count_vec = dictvectorizer.fit_transform(dict_val)
+        
+        tf_idf_mat = tfidf_transformer.fit_transform(count_vec)
+        return tf_idf_mat
+     
+    
+    #def tf_idf(self, data_table, col_name):
+     #   corpus_list = []
+      #  for item in data_table[col_name]:
+      #      corpus_list.append(' '.join(item))
+       #     #corpus_list.append(item)
+        #tfidf_matrix = TfidfVectorizer().fit_transform(corpus_list)
+        #return tfidf_matrix
     
     def cosine_sim(self, mat_name):
         norm_mat = normalize(mat_name, norm='l2', axis=1)
@@ -94,8 +116,8 @@ class tf_idf:
 
     
     def fit(self, pruned_data):
-        
-        
+       
+        self.timer = util.Stopwatch()
         self.review_data = pruned_data
         only_rev = pruned_data.dropna()
         
@@ -103,12 +125,13 @@ class tf_idf:
         item_rev.reset_index(inplace=True)
         
         item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
-        self.item_data = item_data1
+        self.item_data = item_rev
         
         tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
         self.similarity_matrix = self.cosine_sim(tf_idf_mat)
-        #self.timer = util.Stopwatch()
-       #logging.info('[%s] fitting TF-IDF', self.timer)
+        
+        
+        _logger.info('[%s] fitting tfidf model', self.timer)
         
         return self
     
@@ -125,10 +148,7 @@ class tf_idf:
 
             predList = scores.filter(items=itemList)
             final_score = predList.sum(axis=0)
-
-                #final_score = score[itemID].sum()
-           # logging.info('[%s] Recommendation for USERID %s',
-                    # self.timer,userID)
+            _logger.info('[%s] fitting tf-idf model for UserID [%s]', self.timer, userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)
