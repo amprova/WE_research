@@ -77,12 +77,12 @@ class LDA:
         LDA_mat = dictvectorizer.fit_transform(dict_val)
         return LDA_mat
 
-    def cosine_sim(self,mat_name):
+    def inner_prod(self,mat_name):
         
         #norm_mat = normalize(mat_name, norm='l2', axis=1)
         #cosine_mat = norm_mat @ norm_mat.T
-        cosine_mat = mat_name @ mat_name.T
-        return cosine_mat.toarray()
+        inner_prod = mat_name @ mat_name.T
+        return inner_prod.toarray()
 
     def get_user_item(self, userID):
         user_item_ids = self.review_data.set_index('user')['item']
@@ -124,7 +124,7 @@ class LDA:
         
         #tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
         LDA_mat = self.LDA(self.item_data, 'processed_reviews')
-        self.similarity_matrix = self.cosine_sim(LDA_mat)
+        self.similarity_matrix = self.inner_prod(LDA_mat)
         _logger.info('[%s] fitting LDA model', self.timer)
         
         return self
