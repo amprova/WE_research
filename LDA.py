@@ -16,13 +16,13 @@ tokenizer = RegexpTokenizer(r'\w+')
 from scipy import sparse
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
-import logging
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
-_logger = logging.getLogger(__name__)
 import logging
 from gensim import corpora
 from lenskit import util
+logging.basicConfig(filename='LDA.log',filemode='a',level=logging.INFO)
+_logger = logging.getLogger(__name__)
 
 class LDA:
     
@@ -31,6 +31,7 @@ class LDA:
     item_data = None
     timer = None
     NUM_TOPICS = 20
+    
     
     #tokenize = True
     #lower = True
@@ -142,7 +143,7 @@ class LDA:
 
             predList = scores.filter(items=itemList)
             final_score = predList.sum(axis=0)
-            _logger.info('[%s] fitting LDA model for UserID [%s]', self.timer, userID)
+            _logger.info('[%s] Predicting items for UserID %s', self.timer, userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)

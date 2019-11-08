@@ -18,10 +18,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
-_logger = logging.getLogger(__name__)
 import logging
 from gensim import corpora
 from lenskit import util
+logging.basicConfig(filename='TF_IDF.log',filemode='a',level=logging.INFO)
+_logger = logging.getLogger(__name__)
 
 class tf_idf:
     
@@ -148,7 +149,7 @@ class tf_idf:
 
             predList = scores.filter(items=itemList)
             final_score = predList.sum(axis=0)
-            _logger.info('[%s] fitting tf-idf model for UserID [%s]', self.timer, userID)
+            _logger.info('[%s] Predicting items for UserID %s', self.timer, userID)
             return final_score
         else:
             return pd.Series(np.nan, index=items)
