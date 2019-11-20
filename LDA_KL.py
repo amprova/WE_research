@@ -25,6 +25,7 @@ from sklearn.decomposition import LatentDirichletAllocation
 logging.basicConfig(filename='LDA.log',filemode='a',level=logging.INFO)
 _logger = logging.getLogger(__name__)
 from scipy.stats import entropy
+from sklearn.feature_extraction.text import CountVectorizer
 
 class LDAKL:
     
@@ -67,17 +68,21 @@ class LDAKL:
     def LDA(self, data_table, col_name):
         
         lda = LatentDirichletAllocation(n_components=self.NUM_TOPICS, random_state=0)
-        dictvectorizer = DictVectorizer(sparse=True)
-        tfidf_transformer = TfidfTransformer()
-        bow = data_table[col_name].tolist()
-        dictionary = corpora.Dictionary(bow) 
-        corpus = [dictionary.doc2bow(text) for text in bow]
-        data_table['doc2bow'] = corpus
-        dict_val = data_table['doc2bow'].apply(lambda row: self.tuple_to_dict(row))
-        count_vec = dictvectorizer.fit_transform(dict_val)
-        
-        LDA_mat = lda.fit_transform(count_vec)
+        #dictvectorizer = DictVectorizer(sparse=True)
+        #tfidf_transformer = TfidfTransformer()
+        #bow = data_table[col_name].tolist()
+        #dictionary = corpora.Dictionary(bow) 
+        #corpus = [dictionary.doc2bow(text) for text in bow]
+        #data_table['doc2bow'] = corpus
+        #dict_val = data_table['doc2bow'].apply(lambda row: self.tuple_to_dict(row))
+        #count_vec = dictvectorizer.fit_transform(dict_val)
+        vect = CountVectorizer(tokenizer=self.process)
+        corpus = data_table[col_name].tolist()
+        BOW = vect.fit_transform(corpus)
+        #LDA_mat = lda.fit_transform(count_vec)
+        LDA_mat = lda.fit_transform(BOW)
         LDA_MAT = sparse.csr_matrix(LDA_mat)
+        #return LDA_MAT.todense()
         return LDA_MAT.todense()
 
     def jensen_shannon(self, user_item, target_items):
@@ -148,10 +153,10 @@ class LDAKL:
         item_rev = pd.DataFrame({'review': only_rev.groupby(['item']).review.apply(lambda x:' '.join(x))})
         item_rev.reset_index(inplace=True)
         
-        item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
+        #item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
         self.item_data = item_rev
-        
-        self.LDA_matrix = self.LDA(self.item_data, 'processed_reviews')
+        self.LDA_matrix = self.LDA(self.item_data, 'review')
+        #self.LDA_matrix = self.LDA(self.item_data, 'processed_reviews')
         self.user_index = self.review_data.set_index('user')['item']
         _logger.info('[%s] fitting LDA model', self.timer)
         

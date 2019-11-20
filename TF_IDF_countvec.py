@@ -25,18 +25,6 @@ logging.basicConfig(filename='TF_IDF.log',filemode='a',level=logging.INFO)
 _logger = logging.getLogger(__name__)
 from sklearn.feature_extraction.text import CountVectorizer
 
-class Processing(object):
-    
-    def __call__(self, content):
-
-        processed = tokenizer.tokenize(content)
-        processed = [token.lower() for token in processed]
-        processed = [token for token in processed if token not in stopwords.words('english')]
-        processed = [ps.stem(token) for token in processed]
-
-        return processed
-
-
 class tf_idf:
     
     similarity_matrix = None
@@ -53,6 +41,21 @@ class tf_idf:
         self.stop_words_remove = stop_words_remove
         self.stemmed = stemmed
         
+    def process(self, content):
+        
+        if self.tokenize is True:
+            processed = tokenizer.tokenize(content)
+        else:
+            processed = content.split()
+        if self.lower is True:
+            processed = [token.lower() for token in processed]
+        if self.stop_words_remove is True:
+            processed = [token for token in processed if token not in stopwords.words('english')]
+        if self.stemmed is True:
+            processed = [ps.stem(token) for token in processed]
+        
+        return processed
+        
     
     def tuple_to_dict(self,row):
         dc = dict((x, y) for x, y in row)
@@ -60,7 +63,7 @@ class tf_idf:
     
     def tf_idf(self, data_table, col_name):
         
-        vect = CountVectorizer(tokenizer=Processing())
+        vect = CountVectorizer(tokenizer=self.process)
         corpus = data_table[col_name].tolist()
         BOW = vect.fit_transform(corpus)
         tfidf_transformer=TfidfTransformer()

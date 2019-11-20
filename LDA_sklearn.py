@@ -65,7 +65,6 @@ class LDA_SK:
         
         lda = LatentDirichletAllocation(n_components=self.NUM_TOPICS, random_state=0)
         dictvectorizer = DictVectorizer(sparse=True)
-        tfidf_transformer = TfidfTransformer()
         bow = data_table[col_name].tolist()
         dictionary = corpora.Dictionary(bow) 
         corpus = [dictionary.doc2bow(text) for text in bow]
@@ -79,8 +78,6 @@ class LDA_SK:
 
     def inner_prod(self,mat_name):
         
-        #norm_mat = normalize(mat_name, norm='l2', axis=1)
-        #cosine_mat = norm_mat @ norm_mat.T
         inner_prod = mat_name @ mat_name.T
         return inner_prod.toarray()
 
@@ -145,7 +142,7 @@ class LDA_SK:
             _logger.info('[%s] Predicting items for UserID %s', self.timer, userID)
             return final_score
         else:
-            return pd.Series(np.nan, index=items)
+            return pd.Series(np.nan, index=itemList)
         
     def __str__(self):
         return 'LDA'
