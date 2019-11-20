@@ -21,29 +21,29 @@ from sklearn.feature_extraction.text import TfidfTransformer
 import logging
 from gensim import corpora
 from lenskit import util
+from sklearn.decomposition import LatentDirichletAllocation
 logging.basicConfig(filename='LDA.log',filemode='a',level=logging.INFO)
 _logger = logging.getLogger(__name__)
+from scipy.stats import entropy
 
-class LDA:
+class LDAKL:
     
     similarity_matrix = None
     review_data = None
     item_data = None
     timer = None
-    NUM_TOPICS = 20
+    user_index = None
+    LDA_matrix = None
+    #NUM_TOPICS = 20
     
     
-    #tokenize = True
-    #lower = True
-    #stop_words_remove = True
-    #stemmed = True
-    
-    def __init__(self, tokenize = True, lower = True, stop_words_remove = True, stemmed = True):
+    def __init__(self, tokenize = True, lower = True, stop_words_remove = True, stemmed = True, NUM_TOPICS=20):
         
         self.tokenize = tokenize
         self.lower = lower
         self.stop_words_remove = stop_words_remove
         self.stemmed = stemmed
+        self.NUM_TOPICS = NUM_TOPICS
         
     def process(self, content):
         
@@ -65,32 +65,34 @@ class LDA:
         return dc
      
     def LDA(self, data_table, col_name):
+        
+        lda = LatentDirichletAllocation(n_components=self.NUM_TOPICS, random_state=0)
         dictvectorizer = DictVectorizer(sparse=True)
+        tfidf_transformer = TfidfTransformer()
         bow = data_table[col_name].tolist()
         dictionary = corpora.Dictionary(bow) 
         corpus = [dictionary.doc2bow(text) for text in bow]
         data_table['doc2bow'] = corpus
-        lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics = self.NUM_TOPICS, id2word=dictionary, 
-                                                    passes=15, per_word_topics=True)
-        data_table['LDA_topic'] = data_table['doc2bow'].apply(lambda row: lda_model.get_document_topics(row))
+        dict_val = data_table['doc2bow'].apply(lambda row: self.tuple_to_dict(row))
+        count_vec = dictvectorizer.fit_transform(dict_val)
         
-        dict_val = data_table['LDA_topic'].apply(lambda row: self.tuple_to_dict(row))
-        LDA_mat = dictvectorizer.fit_transform(dict_val)
-        return LDA_mat
+        LDA_mat = lda.fit_transform(count_vec)
+        LDA_MAT = sparse.csr_matrix(LDA_mat)
+        return LDA_MAT.todense()
 
-    def inner_prod(self,mat_name):
-        
-        #norm_mat = normalize(mat_name, norm='l2', axis=1)
-        #cosine_mat = norm_mat @ norm_mat.T
-        inner_prod = mat_name @ mat_name.T
-        return inner_prod.toarray()
+    def jensen_shannon(self, user_item, target_items):
+        p = user_item.T # take transpose
+        q = target_items.T # transpose matrix
+        m = 0.5*(p + q)
+        score = np.sqrt(0.5*(entropy(p,m) + entropy(q,m)))
+        return score
 
     def get_user_item(self, userID):
-        user_item_ids = self.review_data.set_index('user')['item']
-        user_item = user_item_ids.loc[userID]
-        if isinstance(user_item, str):
-            user_item = pd.Series(user_item).rename("item")
-        temp_df = user_item.to_frame()
+        
+        item_list = self.user_index.loc[userID]
+        if isinstance(item_list, str):
+            item_list = pd.Series(item_list).rename("item")
+        temp_df = item_list.to_frame()
         temp_df = temp_df.reset_index()
         return temp_df
     
@@ -98,19 +100,45 @@ class LDA:
         r_index = pd.Index(self.item_data.item.unique(), name='item')
         return r_index
     
-    def score_reviews(self, item):
-        try:
-            item2index = self.itemid_2_index()
-            idx = item2index.get_loc(item)
-        except KeyError:
-            return pd.Series(0, item2index, name='rev_sim')
-        row = self.similarity_matrix[idx, :].copy()
-        row[idx] = 0
-        item_sim = pd.Series(row, item2index, name='rev_sim')
-        return item_sim
-
-
+    def user_item_topic_dist(self, userID):
+        temp_df = self.get_user_item(userID)
+        items = temp_df[:]['item']
+        item2index = self.itemid_2_index()
+        itemIX = items.apply(lambda x: (item2index.get_loc(x)))
+        UI_topic_dist = self.LDA_matrix[itemIX, :].sum(axis = 0)
+        return UI_topic_dist
     
+    def target_index(self,target_item):
+        target_idx=[]
+        for item in target_item:
+            try:
+                item2index = self.itemid_2_index()
+                target_idx.append(item2index.get_loc(item))
+            except KeyError:
+                target_item.remove(item)
+        return target_idx
+        #target_mat = self.LDA_matrix[target_idx, :]
+        #sims = self.jensen_shannon(UI_topic_dist, target_mat)
+        #item_sim = pd.Series(sims, name='rev_sim', index=target_item)
+        #return item_sim
+        #return target_topic_dist
+    def sim_score(self, UI_topic_dist,target):
+        
+        target_idx=pd.Series()
+        invalid_item=[]
+        item2index = self.itemid_2_index()
+        
+        for item in target:
+            if item in item2index:
+                target_idx = target_idx.set_value(item, item2index.get_loc(item))
+        target_mat = self.LDA_matrix[target_idx, :]
+        sims = self.jensen_shannon(UI_topic_dist, target_mat)
+        item_sim = pd.Series(sims, name='rev_sim', index=target_idx.index)
+    
+        return item_sim
+       
+        
+
     def fit(self, pruned_data):
         
         self.timer = util.Stopwatch()
@@ -123,30 +151,24 @@ class LDA:
         item_rev['processed_reviews'] = item_rev['review'].apply(lambda row: self.process(row))
         self.item_data = item_rev
         
-        #tf_idf_mat = self.tf_idf(self.item_data, 'processed_reviews')
-        LDA_mat = self.LDA(self.item_data, 'processed_reviews')
-        self.similarity_matrix = self.inner_prod(LDA_mat)
+        self.LDA_matrix = self.LDA(self.item_data, 'processed_reviews')
+        self.user_index = self.review_data.set_index('user')['item']
         _logger.info('[%s] fitting LDA model', self.timer)
         
         return self
-    
+        
+        
     def predict_for_user(self, userID, itemList, ratings = None):
-        user_item_ids = self.review_data.set_index('user')['item']
-        if userID in user_item_ids.index:
-            temp_df = self.get_user_item(userID)
-            items = temp_df[:]['item']
-            scores = items.apply(lambda x: self.score_reviews(x))
+        
+        if userID in self.user_index.index:
+            UI_dist = self.user_item_topic_dist(userID)
+            final_score = self.sim_score(UI_dist, itemList)
 
-            present = items[items.isin(scores.columns)]
-            scores.loc[:, present] = 0
-            #final_score = scores.sum(axis=0)
-
-            predList = scores.filter(items=itemList)
-            final_score = predList.sum(axis=0)
             _logger.info('[%s] Predicting items for UserID %s', self.timer, userID)
+            final_score.index.name = 'item'
             return final_score
         else:
-            return pd.Series(np.nan, index=items)
+            return pd.Series(np.nan, index=itemList)
         
     def __str__(self):
         return 'LDA'

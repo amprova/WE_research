@@ -75,15 +75,6 @@ class tf_idf:
         
         tf_idf_mat = tfidf_transformer.fit_transform(count_vec)
         return tf_idf_mat
-     
-    
-    #def tf_idf(self, data_table, col_name):
-     #   corpus_list = []
-      #  for item in data_table[col_name]:
-      #      corpus_list.append(' '.join(item))
-       #     #corpus_list.append(item)
-        #tfidf_matrix = TfidfVectorizer().fit_transform(corpus_list)
-        #return tfidf_matrix
     
     def cosine_sim(self, mat_name):
         norm_mat = normalize(mat_name, norm='l2', axis=1)

@@ -31,20 +31,16 @@ class LDA_SK:
     review_data = None
     item_data = None
     timer = None
-    NUM_TOPICS = 20
+    #NUM_TOPICS = 20
     
     
-    #tokenize = True
-    #lower = True
-    #stop_words_remove = True
-    #stemmed = True
-    
-    def __init__(self, tokenize = True, lower = True, stop_words_remove = True, stemmed = True):
+    def __init__(self, tokenize = True, lower = True, stop_words_remove = True, stemmed = True, NUM_TOPICS=20):
         
         self.tokenize = tokenize
         self.lower = lower
         self.stop_words_remove = stop_words_remove
         self.stemmed = stemmed
+        self.NUM_TOPICS = NUM_TOPICS
         
     def process(self, content):
         
@@ -67,7 +63,7 @@ class LDA_SK:
      
     def LDA(self, data_table, col_name):
         
-        lda = LatentDirichletAllocation(n_components=20, random_state=0)
+        lda = LatentDirichletAllocation(n_components=self.NUM_TOPICS, random_state=0)
         dictvectorizer = DictVectorizer(sparse=True)
         tfidf_transformer = TfidfTransformer()
         bow = data_table[col_name].tolist()

@@ -44,10 +44,7 @@ class tf_idf:
     item_data = None
     timer = None
     user_index = None
-    #tokenize = True
-    #lower = True
-    #stop_words_remove = True
-    #stemmed = True
+    
 
     def __init__(self, tokenize = True, lower = True, stop_words_remove = True, stemmed = True):
         
@@ -79,7 +76,7 @@ class tf_idf:
     def get_user_item(self, userID):
         #user_item_ids = self.review_data.set_index('user')['item']
         item_list = self.user_index.loc[userID]
-        if isinstance(user_item, str):
+        if isinstance(item_list, str):
             item_list = pd.Series(item_list).rename("item")
         temp_df = item_list.to_frame()
         temp_df = temp_df.reset_index()
@@ -135,7 +132,7 @@ class tf_idf:
             _logger.info('[%s] Predicting items for UserID %s', self.timer, userID)
             return final_score
         else:
-            return pd.Series(np.nan, index=items)
+            return pd.Series(np.nan, index=itemList)
         
     def __str__(self):
         return 'Tf-IDF'
