@@ -123,7 +123,7 @@ class tf_idf:
         #user_item_ids = self.review_data.set_index('user')['item']
         if userID in self.user_index.index:
             temp_df = self.get_user_item(userID)
-            items = temp_df[:]['item']
+            items = pd.Series(temp_df['item'].unique())
             scores = items.apply(lambda x: self.score_reviews(x))
 
             present = items[items.isin(scores.columns)]

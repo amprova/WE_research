@@ -35,6 +35,7 @@ class LDAKL:
     timer = None
     user_index = None
     LDA_matrix = None
+    item2index = None
     #NUM_TOPICS = 20
     
     
@@ -60,29 +61,15 @@ class LDAKL:
             processed = [ps.stem(token) for token in processed]
         
         return processed
-    
-    def tuple_to_dict(self,row):
-        dc = dict((x, y) for x, y in row)
-        return dc
      
     def LDA(self, data_table, col_name):
         
         lda = LatentDirichletAllocation(n_components=self.NUM_TOPICS, random_state=0)
-        #dictvectorizer = DictVectorizer(sparse=True)
-        #tfidf_transformer = TfidfTransformer()
-        #bow = data_table[col_name].tolist()
-        #dictionary = corpora.Dictionary(bow) 
-        #corpus = [dictionary.doc2bow(text) for text in bow]
-        #data_table['doc2bow'] = corpus
-        #dict_val = data_table['doc2bow'].apply(lambda row: self.tuple_to_dict(row))
-        #count_vec = dictvectorizer.fit_transform(dict_val)
         vect = CountVectorizer(tokenizer=self.process)
         corpus = data_table[col_name].tolist()
         BOW = vect.fit_transform(corpus)
-        #LDA_mat = lda.fit_transform(count_vec)
         LDA_mat = lda.fit_transform(BOW)
         LDA_MAT = sparse.csr_matrix(LDA_mat)
-        #return LDA_MAT.todense()
         return LDA_MAT.todense()
 
     def jensen_shannon(self, user_item, target_items):
@@ -101,41 +88,26 @@ class LDAKL:
         temp_df = temp_df.reset_index()
         return temp_df
     
-    def itemid_2_index(self):
-        r_index = pd.Index(self.item_data.item.unique(), name='item')
-        return r_index
+    def itemid_2_index(self, item):
+        try:
+            return self.item2index.get_loc(item)
+        except KeyError:
+            pass
     
     def user_item_topic_dist(self, userID):
         temp_df = self.get_user_item(userID)
-        items = temp_df[:]['item']
-        item2index = self.itemid_2_index()
-        itemIX = items.apply(lambda x: (item2index.get_loc(x)))
+        items = temp_df['item'].unique()
+        item = [self.itemid_2_index(x) for x in items if self.itemid_2_index(x) is not None]
         UI_topic_dist = self.LDA_matrix[itemIX, :].sum(axis = 0)
         return UI_topic_dist
-    
-    def target_index(self,target_item):
-        target_idx=[]
-        for item in target_item:
-            try:
-                item2index = self.itemid_2_index()
-                target_idx.append(item2index.get_loc(item))
-            except KeyError:
-                target_item.remove(item)
-        return target_idx
-        #target_mat = self.LDA_matrix[target_idx, :]
-        #sims = self.jensen_shannon(UI_topic_dist, target_mat)
-        #item_sim = pd.Series(sims, name='rev_sim', index=target_item)
-        #return item_sim
-        #return target_topic_dist
+        
     def sim_score(self, UI_topic_dist,target):
         
         target_idx=pd.Series()
-        invalid_item=[]
-        item2index = self.itemid_2_index()
-        
         for item in target:
-            if item in item2index:
-                target_idx = target_idx.set_value(item, item2index.get_loc(item))
+            ix = self.itemid_2_index(item)
+            if ix is not None:
+                target_idx.at[item] = ix
         target_mat = self.LDA_matrix[target_idx, :]
         sims = self.jensen_shannon(UI_topic_dist, target_mat)
         item_sim = pd.Series(sims, name='rev_sim', index=target_idx.index)
@@ -158,6 +130,7 @@ class LDAKL:
         self.LDA_matrix = self.LDA(self.item_data, 'review')
         #self.LDA_matrix = self.LDA(self.item_data, 'processed_reviews')
         self.user_index = self.review_data.set_index('user')['item']
+        self.item2index = pd.Index(self.item_data.item.unique(), name='item')
         _logger.info('[%s] fitting LDA model', self.timer)
         
         return self
