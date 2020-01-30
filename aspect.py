@@ -32,14 +32,15 @@ class aspect_extract:
 
     def getNounSibling(self, depTable, nountoken, adjtoken):
         ## I add this ##
+        '''print(nountoken.xpos)
         if self.isPronoun(nountoken):
             for index in range(0,len(depTable)):
                 if depTable['gov'][index].lemma == adjtoken.lemma and self.isNoun(depTable['dep'][index]):
                     noun = depTable['dep'][index].lemma
                     nounList=[noun]
-        elif self.isNoun(nountoken):
-            noun = nountoken.lemma
-            nounList=[noun]
+        elif self.isNoun(nountoken):'''
+        noun = nountoken.lemma
+        nounList=[noun]
         for index in range(0,len(depTable)):
             if depTable['rel'][index] =='conj' and depTable['gov'][index].lemma == noun:
                 nounList.append(depTable['dep'][index].lemma)
@@ -121,61 +122,61 @@ class aspect_extract:
             t = tuple((n, adj, mod, aff))
         return t
 
-    def casensub(self, df, index):
-        dep = df['dep'][index]
-        gov = df['gov'][index]           # getting the dependence of the noun (looking for adj or vb)
-        nouns = self.getNounSibling(df, dep, gov)  #getting the nouns that are joined by conjuction
+    def casensub(self, depTable, index):
+        dep = depTable['dep'][index]
+        gov = depTable['gov'][index]           # getting the dependence of the noun (looking for adj or vb)
+        nouns = self.getNounSibling(depTable, dep, gov)  #getting the nouns that are joined by conjuction
         a =[]
         if self.isAdjective(gov):            ## example: the room is big
-            adjs = self.getAdjectiveSibling(df, gov, nouns)  #getting the adjective that are joined by conj
+            adjs = self.getAdjectiveSibling(depTable, gov, nouns)  #getting the adjective that are joined by conj
             for adj in adjs:                     #for all the adj check the modifier and affirmative
-                mod = self.getAdjectiveModifiers(df, adj)
-                aff = self.isAffirmative(df, adj)
+                mod = self.getAdjectiveModifiers(depTable, adj)
+                aff = self.isAffirmative(depTable, adj)
                 a.append(self.annotations(nouns, adj, mod, aff))
             return a
         elif self.isVerb(gov):         #example:The staff works fast
-            for ind in range(0, len(df)):
-                if (df['rel'][ind] == 'xcomp' or df['rel'][ind] == 'advmod') and df['gov'][ind].lemma == gov.lemma:    ##looking for the adjective or adverb
-                    newdep = df['dep'][ind]                ## adj or adv
-                    adjs = self.getAdjectiveSibling(df, newdep, nouns)   ## list of adj joined by conj
+            for ind in range(0, len(depTable)):
+                if (depTable['rel'][ind] == 'xcomp' or depTable['rel'][ind] == 'advmod') and depTable['gov'][ind].lemma == gov.lemma:    ##looking for the adjective or adverb
+                    newdep = depTable['dep'][ind]                ## adj or adv
+                    adjs = self.getAdjectiveSibling(depTable, newdep, nouns)   ## list of adj joined by conj
                     for adj in adjs:                     #for all the adj check the modifier and affirmative
-                        mod = self.getAdjectiveModifiers(df, adj)
-                        aff = self.isAffirmative(df, adj)
+                        mod = self.getAdjectiveModifiers(depTable, adj)
+                        aff = self.isAffirmative(depTable, adj)
                         a.append(self.annotations(nouns, adj, mod, aff))
                     return a
 
-    def caseamod(self, df, index):   # example: The restaurant has good staff
-        dep = df['dep'][index]
-        gov = df['gov'][index]
+    def caseamod(self, depTable, index):   # example: The restaurant has good staff
+        dep = depTable['dep'][index]
+        gov = depTable['gov'][index]
         a =[]
         if self.isAdjective(dep) or self.isAdverb(dep) and (self.isNoun(gov) or self.isPronoun(gov)):
-            nouns = self.getNounSibling(df, gov, dep)  #gov is a noun and dep is an adj
-            adjs = self.getAdjectiveSibling(df, dep, nouns)  # dep is the adj
+            nouns = self.getNounSibling(depTable, gov, dep)  #gov is a noun and dep is an adj
+            adjs = self.getAdjectiveSibling(depTable, dep, nouns)  # dep is the adj
             for adj in adjs:                     #for all the adj check the modifier and affirmative
-                mod = self.getAdjectiveModifiers(df, adj)
-                aff = self.isAffirmative(df, adj)
+                mod = self.getAdjectiveModifiers(depTable, adj)
+                aff = self.isAffirmative(depTable, adj)
                 a.append(self.annotations(nouns, adj, mod, aff))
             return a
 
 
     def getsubj(self, depTable, verb):
         for ind in range(0,len(depTable)):
-            if df['rel'][ind] == 'nsubj' and df['gov'][ind].lemma == verb.lemma:
+            if depTable['rel'][ind] == 'nsubj' and depTable['gov'][ind].lemma == verb.lemma:
                 #print(df['dep'][index])
-                return df['dep'][ind]
+                return depTable['dep'][ind]
 
 
-    def casecomp(self, df, index):
-        dep = df['dep'][index]  #adj
-        gov = df['gov'][index]  #verb
+    def casecomp(self, depTable, index):
+        dep = depTable['dep'][index]  #adj
+        gov = depTable['gov'][index]  #verb
         a =[]
         if self.isAdjective(dep):
-            sub = self.getsubj(df, gov)
-            nouns = self.getNounSibling(df, sub, dep)  #(df, n, adj)
-            adjs = self.getAdjectiveSibling(df, dep, nouns)
+            sub = self.getsubj(depTable, gov)
+            nouns = self.getNounSibling(depTable, sub, dep)  #(df, n, adj)
+            adjs = self.getAdjectiveSibling(depTable, dep, nouns)
             for adj in adjs:                     #for all the adj check the modifier and affirmative
-                mod = self.getAdjectiveModifiers(df, adj)
-                aff = self.isAffirmative(df, adj)
+                mod = self.getAdjectiveModifiers(depTable, adj)
+                aff = self.isAffirmative(depTable, adj)
                 a.append(self.annotations(nouns, adj, mod, aff))
 
             return a
