@@ -32,15 +32,17 @@ class aspect_extract:
 
     def getNounSibling(self, depTable, nountoken, adjtoken):
         ## I add this ##
-        '''print(nountoken.xpos)
+        noun = nountoken.lemma
+        nounList=[noun]
+        print(nountoken.xpos)
         if self.isPronoun(nountoken):
             for index in range(0,len(depTable)):
                 if depTable['gov'][index].lemma == adjtoken.lemma and self.isNoun(depTable['dep'][index]):
                     noun = depTable['dep'][index].lemma
                     nounList=[noun]
-        elif self.isNoun(nountoken):'''
-        noun = nountoken.lemma
-        nounList=[noun]
+        #elif self.isNoun(nountoken):'''
+        #noun = nountoken.lemma
+        #nounList=[noun]
         for index in range(0,len(depTable)):
             if depTable['rel'][index] =='conj' and depTable['gov'][index].lemma == noun:
                 nounList.append(depTable['dep'][index].lemma)
